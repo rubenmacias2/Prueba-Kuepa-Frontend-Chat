@@ -1,38 +1,38 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
+import io from "socket.io-client";
 import chatApi from "../../api/chatApi";
 
+const socket = io("http://localhost:8080");
 const ChatStream = () => {
-  const [messages, setMessages] = useState([
-    "Mensaje 1",
-    "Mensaje 2",
-    "Mensaje 3",
-    "Mensaje 4",
-    "Mensaje 5",
-    "Mensaje 6",
-    "Mensaje 7",
-    "Mensaje 8",
-    "Mensaje 9",
-    "Mensaje 10",
-    "Mensaje 11",
-  ]);
+  const [messages, setMessages] = useState([]);
+  const [messageInput, setMessageInput] = useState("");
 
-  const saveMensage = async (mensage) => {
+  useEffect(() => {
+    socket.on("nuevoMensaje", (mensaje) => {
+      setMessages((prevMessages) => [...prevMessages, mensaje]);
+    });
+    chatApi.showMensages();
+    return () => {
+      socket.off("nuevoMensaje");
+    };
+  }, []);
+
+  const saveMessage = async (message) => {
     const ahora = new Date();
     const data = {
-      contenido: mensage,
-      fecha: ahora.toLocaleString(),
+      contenido: message,
+      fecha: ahora.toISOString(),
       usuario: JSON.parse(localStorage.getItem("user")).nombreUsuario,
     };
-    chatApi.sendMensage(data);
+    socket.emit("mensajeEnviado", data);
   };
 
-  const [messageInput, setMessageInput] = useState("");
   const handleMessageSend = () => {
     if (messageInput.trim() !== "") {
-      saveMensage(messageInput);
+      saveMessage(messageInput);
       setMessageInput("");
     }
   };
@@ -73,7 +73,8 @@ const ChatStream = () => {
             variant="body1"
             sx={{ marginBottom: 1, color: "white" }}
           >
-            {message}
+            {message.usuario}: {message.contenido} -{" "}
+            {new Date(message.fecha).toLocaleString()}
           </Typography>
         ))}
       </Box>
