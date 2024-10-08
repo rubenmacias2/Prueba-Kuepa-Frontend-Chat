@@ -3,7 +3,7 @@ import { api, escalateError } from './index';
 const chatApi = {
   async showMensages (){
   try {
-      return await api.post('/getMessages/');
+      return await api.get('/getMessages/');
     } catch (err) {
       escalateError(err);
       return err;

@@ -1,24 +1,75 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import io from "socket.io-client";
 import chatApi from "../../api/chatApi";
+import userApi from "../../api/userApi";
 
-const socket = io("http://localhost:8080");
+const socket = io(process.env.REACT_APP_API_URL);
+
 const ChatStream = () => {
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState("");
+  const chatEndRef = useRef(null);
+
+  const identifyUserMessage = async (mail) => {
+    try {
+      const userData = await userApi.getInfoUser(mail);
+      return userData.data;
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    }
+  };
 
   useEffect(() => {
-    socket.on("nuevoMensaje", (mensaje) => {
-      setMessages((prevMessages) => [...prevMessages, mensaje]);
+    const ShowOldMensajes = async () => {
+      try {
+        const oldMenasje = (await chatApi.showMensages())?.data.listChats;
+        const allMensaje = [];
+        const userCache = {};
+        for (let res of oldMenasje) {
+          if (userCache[res.usuario]) {
+            allMensaje.push({
+              ...userCache[res.usuario],
+              ...res,
+            });
+          } else {
+            const userData = await identifyUserMessage(res.usuario);
+            userCache[res.usuario] = userData?.user;
+
+            allMensaje.push({
+              ...userData?.user,
+              ...res,
+            });
+          }
+        }
+        setMessages(allMensaje);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    ShowOldMensajes();
+
+    socket.on("nuevoMensaje", async (mensaje) => {
+      const userData = (await identifyUserMessage(mensaje.usuario))?.user;
+      const mensajeUser = { ...mensaje, ...userData };
+      setMessages((prevMessages) => [...prevMessages, mensajeUser]);
     });
-    chatApi.showMensages();
+
     return () => {
       socket.off("nuevoMensaje");
     };
   }, []);
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const saveMessage = async (message) => {
     const ahora = new Date();
@@ -41,6 +92,12 @@ const ChatStream = () => {
     setMessageInput(e.target.value);
   };
 
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") {
+      handleMessageSend();
+    }
+  };
+
   return (
     <Box
       sx={{
@@ -49,7 +106,7 @@ const ChatStream = () => {
         border: "2px solid #007FFF",
         cursor: "pointer",
         width: "100%",
-        height: "82%",
+        height: "70vh",
         display: "flex",
         flexDirection: "column",
       }}
@@ -68,15 +125,46 @@ const ChatStream = () => {
         }}
       >
         {messages.map((message, index) => (
-          <Typography
+          <Box
             key={index}
-            variant="body1"
-            sx={{ marginBottom: 1, color: "white" }}
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+            }}
           >
-            {message.usuario}: {message.contenido} -{" "}
-            {new Date(message.fecha).toLocaleString()}
-          </Typography>
+            <Box
+              sx={{
+                minWidth: "80%",
+                marginBottom: 1,
+                padding: 1,
+                borderRadius: 1,
+                backgroundColor: "#333",
+                alignSelf:
+                  message.usuario ===
+                  JSON.parse(localStorage.getItem("user")).nombreUsuario
+                    ? "flex-end"
+                    : "flex-start",
+                color: "white",
+              }}
+            >
+              <Typography
+                sx={{
+                  color: message.rol === "moderador" ? "#2aff00" : "#1976D2",
+                  fontWeight: "bold",
+                }}
+              >
+                {message.nombre}
+              </Typography>
+              <Typography variant="body1" sx={{ marginBottom: 0.5 }}>
+                {message.contenido}
+              </Typography>
+              <Typography variant="overline" sx={{ color: "#aaa" }}>
+                {new Date(message.fecha).toLocaleString()}
+              </Typography>
+            </Box>
+          </Box>
         ))}
+        <div ref={chatEndRef} />
       </Box>
 
       <Box sx={{ display: "flex", alignItems: "center" }}>
@@ -92,6 +180,7 @@ const ChatStream = () => {
           }}
           value={messageInput}
           onChange={handleInputChange}
+          onKeyPress={handleKeyPress}
         />
         <Button variant="contained" color="primary" onClick={handleMessageSend}>
           Enviar

@@ -21,6 +21,14 @@ const userApi ={
       escalateError(err);
       return err;
     }
+  },
+  async getInfoUser(username){
+    try{
+      return await api.get(`/findUser?nombreUsuario=${username}`);
+    }catch (err) {
+      escalateError(err);
+      return err;
+    }
   }
 };
 

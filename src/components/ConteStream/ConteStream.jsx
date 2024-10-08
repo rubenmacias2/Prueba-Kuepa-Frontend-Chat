@@ -26,11 +26,17 @@ const ConteStream = () => {
             display: "flex",
             flexDirection: "row",
             gap: 2,
+            "@media (max-width: 768px)": {
+              flexDirection: "column",
+            },
           }}
         >
           <Box
             sx={{
               flex: "1 1 70%",
+              "@media (max-width: 768px)": {
+                flex: "1 1 auto",
+              },
             }}
           >
             <iframe
@@ -46,6 +52,9 @@ const ConteStream = () => {
           <Box
             sx={{
               flex: "1 1 30%",
+              "@media (max-width: 768px)": {
+                flex: "1 1 auto",
+              },
             }}
           >
             <ChatStream />
